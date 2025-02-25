@@ -12,8 +12,6 @@ import { getGroups, createGroup, updateGroup } from "../../services/api";
 import { useTheme } from "../../store/ThemeContext";
 import { Group } from "../../types/group";
 
-
-
 const GroupPage = () => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -43,6 +41,7 @@ const GroupPage = () => {
       setGroups(filtered);
       setError(null);
     } catch (err) {
+      console.error("Error fetching groups:", err);
       setError(err.message || "An error occurred while fetching groups");
     }
   };
@@ -81,19 +80,30 @@ const GroupPage = () => {
     setShowForm({ type: "edit", group });
   };
 
-  const handleFormSubmit = async (name: string, category: string) => {
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const name = formData.get("name")?.toString() || ""; // Ensure name is a string, default to empty string
+    const category = formData.get("category")?.toString() || undefined; // Handle null/undefined for category
+
+    if (!name.trim()) {
+      alert("Group Name is required.");
+      return;
+    }
+
     try {
       if (showForm?.type === "add") {
-        const newGroup = await createGroup(name, category || undefined);
+        const newGroup = await createGroup(name, category);
         setGroups((prev: Group[]) => [...prev, newGroup]);
       } else if (showForm?.type === "edit" && showForm.group) {
-        const updatedGroup = await updateGroup(showForm.group.id, name, category || undefined);
+        const updatedGroup = await updateGroup(showForm.group.id, name, category);
         setGroups((prev: Group[]) => prev.map((g) => (g.id === updatedGroup.id ? updatedGroup : g)));
       }
       setShowForm(null);
     } catch (error: any) {
       console.error("Error saving group:", error.response || error);
-      alert(error.response?.data?.message || "Error saving group");
+      alert(error.response?.data?.message || "Error saving group. Please try again.");
     }
   };
 
@@ -132,27 +142,23 @@ const GroupPage = () => {
           title={showForm.type === "add" ? "Add Group" : "Edit Group"}
         >
           <FormCard
-            onSubmit={(e: React.FormEvent) => {
-              e.preventDefault();
-              const formData = new FormData(e.target as HTMLFormElement);
-              handleFormSubmit(
-                formData.get("name") as string,
-                formData.get("category") as string
-              );
-            }}
+            onSubmit={handleFormSubmit}
           >
             <div className={`space-y-4 ${isDarkMode ? "dark:text-[#98C1D9]" : "text-[#2D2D2D]"}`}>
               <InputField
                 placeholder="Group Name"
                 initialValue={showForm.group?.name || ""}
                 name="name"
+                required
+                onChange={(value) => ( value)}
               />
               <InputField
                 placeholder="Category (optional)"
                 initialValue={showForm.group?.category || ""}
                 name="category"
+                onChange={(value) => (value)}
               />
-              <div className="flex justify-end space-x-2">
+              <div className="mt-4 flex justify-end space-x-2">
                 <Button onClick={() => setShowForm(null)}>Cancel</Button>
                 <Button type="submit">Save</Button>
               </div>
