@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "../../components/global/Button"; // Import Button
 import { useTheme } from "../../store/ThemeContext";
-import { deleteGroups } from "../../services/api";
+import { deleteGroups } from "../../services/groupApi";
 
 interface SelectedActionsProps {
   selectedIds: number[];
@@ -36,4 +36,3 @@ export const SelectedActions = ({ selectedIds, onActionComplete }: SelectedActio
     </div>
   );
 };
-

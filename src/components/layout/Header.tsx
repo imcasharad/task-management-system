@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Dialog } from "@headlessui/react";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { Sidebar } from "./Sidebar";
 import { ThemeToggle } from "../global/ThemeToggle"; // Updated path
@@ -17,8 +16,11 @@ export const Header = ({ onSearch }: HeaderProps) => {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    onSearch(query); // Notify parent (App) of search
+    onSearch(query); // Placeholder; will be updated for global search later
   };
+
+  // TODO: Implement global search functionality here to search groups, plans, clients, etc., after completing the software
+  console.log("Header search query:", searchQuery);
 
   return (
     <header className={`bg-[#3D5A80] text-white p-4 shadow-md ${isDarkMode ? "dark:bg-gray-800 dark:text-[#98C1D9]" : ""}`}>

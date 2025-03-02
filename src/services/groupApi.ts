@@ -1,13 +1,13 @@
 import axios from "axios";
-import { Group } from "../types/group"; // Import the Group type
+import { Group } from "../types/group"; // Import the updated Group type
 
-const API_URL = "http://localhost:5000/api"; // Backend URL
+const API_URL = import.meta.env.VITE_API_URL; // Backend URL
 
-export const createGroup = async (name: string, category?: string): Promise<Group> => {
+export const createGroup = async (name: string, categoryId?: number): Promise<Group> => {
   try {
     const response = await axios.post<Group>(`${API_URL}/groups`, {
       name,
-      category,
+      categoryId, // Use categoryId instead of category
       isActive: true, // Default to true, adjust based on your backend
     });
     return response.data;
@@ -20,7 +20,13 @@ export const createGroup = async (name: string, category?: string): Promise<Grou
 export const getGroups = async (): Promise<Group[]> => {
   try {
     const response = await axios.get<Group[]>(`${API_URL}/groups`);
-    return response.data;
+    // Ensure virtual properties are included in the response
+    return response.data.map(group => ({
+      ...group,
+      category: group.category || "No Category",
+      categoryType: group.categoryType || "No Type",
+      isMandatory: group.isMandatory || false,
+    }));
   } catch (error) {
     console.error("Error fetching groups:", error);
     throw new Error("Failed to fetch groups. Please check the API endpoint or network connection.");
@@ -28,11 +34,11 @@ export const getGroups = async (): Promise<Group[]> => {
 };
 
 // New: Update a group
-export const updateGroup = async (id: number, name: string, category?: string): Promise<Group> => {
+export const updateGroup = async (id: number, name: string, categoryId?: number): Promise<Group> => {
   try {
     const response = await axios.put<Group>(`${API_URL}/groups/${id}`, {
       name,
-      category,
+      categoryId, // Use categoryId instead of category
       isActive: true, // Default to true, adjust based on your backend
     });
     return response.data;
@@ -42,7 +48,7 @@ export const updateGroup = async (id: number, name: string, category?: string): 
   }
 };
 
-  // New: Delete groups
-  export const deleteGroups = async (ids: number[]) => {
-    await axios.delete(`${API_URL}/groups`, { data: { ids } });
-  };
+// New: Delete groups
+export const deleteGroups = async (ids: number[]) => {
+  await axios.delete(`${API_URL}/groups`, { data: { ids } });
+};

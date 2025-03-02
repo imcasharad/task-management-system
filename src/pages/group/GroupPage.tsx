@@ -8,7 +8,7 @@ import { Button } from "../../components/global/Button";
 import {SearchFilter} from "./SearchFilter";
 import {GroupList} from "./GroupList";
 import {SelectedActions} from "./SelectedActions";
-import { getGroups, createGroup, updateGroup } from "../../services/api";
+import { getGroups, createGroup, updateGroup, getAllCategoryTypes, getAllCategoryItemsByType} from "../../services";
 import { useTheme } from "../../store/ThemeContext";
 import { Group } from "../../types/group";
 
@@ -17,15 +17,21 @@ const GroupPage = () => {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showForm, setShowForm] = useState<{ type: "add" | "edit"; group?: Group } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [categoryItems, setCategoryItems] = useState<any[]>([]);
+  const [groupType, setGroupType] = useState<CategoryType | null>(null);
   const { isDarkMode } = useTheme();
 
   useEffect(() => {
     fetchGroups();
+    fetchGroupCategoryItems();
+    fetchGroupCategoryType();
   }, []);
 
   const fetchGroups = async (query?: string, filter?: { category?: string; isActive?: boolean }) => {
     try {
+      console.log("Fetching groups...");
       const data = await getGroups();
+      console.log("Groups fetched:", data);
       let filtered: Group[] = data;
       if (query) {
         filtered = filtered.filter((g: Group) =>
@@ -33,16 +39,43 @@ const GroupPage = () => {
         );
       }
       if (filter?.category) {
-        filtered = filtered.filter((g: Group) => g.category === filter.category);
+        filtered = filtered.filter((g: Group) => g.category?.toLowerCase() === filter.category.toLowerCase());
       }
       if (filter?.isActive !== undefined) {
         filtered = filtered.filter((g: Group) => g.isActive === filter.isActive);
       }
       setGroups(filtered);
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching groups:", err);
       setError(err.message || "An error occurred while fetching groups");
+    }
+  };
+
+
+  const fetchGroupCategoryItems = async () => {
+    try {
+      if (groupType) {
+        const items = await getAllCategoryItemsByType(groupType.id);
+        setCategoryItems(items);
+      }
+    } catch (err) {
+      console.error("Error fetching group category items:", err);
+      setError(err.message || "An error occurred while fetching category items");
+    }
+  };
+
+  const fetchGroupCategoryType = async () => {
+    try {
+      const types = await getAllCategoryTypes();
+      const group = types.find(t => t.name === "Group");
+      setGroupType(group || null);
+      if (group) {
+        await fetchGroupCategoryItems(); // Fetch items once groupType is available
+      }
+    } catch (err) {
+      console.error("Error fetching group category type:", err);
+      setError(err.message || "An error occurred while fetching group category type");
     }
   };
 
@@ -52,11 +85,6 @@ const GroupPage = () => {
   };
 
   const handleSearch = (query: string) => {
-    fetchGroups(query);
-  };
-
-  const handleGlobalSearch = (query: string) => {
-    console.log("Global search for groups:", query);
     fetchGroups(query);
   };
 
@@ -84,21 +112,45 @@ const GroupPage = () => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
-    const name = formData.get("name")?.toString() || ""; // Ensure name is a string, default to empty string
-    const category = formData.get("category")?.toString() || undefined; // Handle null/undefined for category
-
+    const name = formData.get("name")?.toString() || "";
+    const categoryId = formData.get("categoryId") ? parseInt(formData.get("categoryId") as string) : undefined;
+  
     if (!name.trim()) {
       alert("Group Name is required.");
       return;
     }
+  
+    // Check if category is mandatory for Group type
+    if (!groupType) {
+      alert("Group category type not found!");
+      return;
+    }
+
+    if (groupType.isMandatory && !categoryId) {
+      alert("Category is required for Groups because the Group category type is mandatory!");
+      return;
+    }
+
+    if (categoryId) {
+      const selectedItem = categoryItems.find(item => item.id === categoryId);
+      if (!selectedItem) {
+        alert("Invalid category ID provided!");
+        return;
+      }
+      if (selectedItem.categoryType.id !== groupType.id) {
+        alert("Category must belong to the Group category type!");
+        return;
+      }
+    }
 
     try {
+      console.log("Submitting form:", { name, categoryId, showForm });
       if (showForm?.type === "add") {
-        const newGroup = await createGroup(name, category);
-        setGroups((prev: Group[]) => [...prev, newGroup]);
+        const newGroup = await createGroup(name, categoryId);
+        setGroups([...groups, newGroup]);
       } else if (showForm?.type === "edit" && showForm.group) {
-        const updatedGroup = await updateGroup(showForm.group.id, name, category);
-        setGroups((prev: Group[]) => prev.map((g) => (g.id === updatedGroup.id ? updatedGroup : g)));
+        const updatedGroup = await updateGroup(showForm.group.id, name, categoryId, showForm.group.isActive);
+        setGroups(groups.map(g => g.id === updatedGroup.id ? updatedGroup : g));
       }
       setShowForm(null);
     } catch (error: any) {
@@ -109,7 +161,7 @@ const GroupPage = () => {
 
   return (
     <div className={`min-h-screen flex flex-col ${isDarkMode ? "dark:bg-[#2D2D2D] dark:text-[#98C1D9]" : "bg-white text-[#2D2D2D]"}`}>
-      <Header onSearch={handleGlobalSearch} />
+      <Header onSearch={() => {}}/>
       <main className={`flex-1 p-4 md:p-6 ${isDarkMode ? "dark:bg-[#2D2D2D] dark:text-[#98C1D9]" : "bg-white text-[#2D2D2D]"}`}>
         {error ? (
           <p className={`text-red-500 ${isDarkMode ? "dark:text-red-400" : ""}`}>{error}</p>
@@ -119,7 +171,7 @@ const GroupPage = () => {
             <SearchFilter
               onSearch={handleSearch}
               onFilter={handleFilter}
-              categories={Array.from(new Set(groups.map((g: Group) => g.category).filter((cat): cat is string => cat !== undefined))) as string[]}
+              categories={Array.from(new Set(categoryItems.map((item: any) => item.name || "No Category")))}
               onAddGroup={handleAddGroup}
               onSelectAll={handleSelectAll}
               groups={groups}
@@ -150,14 +202,23 @@ const GroupPage = () => {
                 initialValue={showForm.group?.name || ""}
                 name="name"
                 required
-                onChange={(value) => ( value)}
+                onChange={(value) => console.log("Group Name changed:", value)}
               />
-              <InputField
-                placeholder="Category (optional)"
-                initialValue={showForm.group?.category || ""}
-                name="category"
-                onChange={(value) => (value)}
-              />
+              <select
+                name="categoryId"
+                className={`w-full p-2 rounded-md border ${isDarkMode ? "dark:border-[#98C1D9] dark:bg-[#2D2D2D] dark:text-white" : "border-[#98C1D9] bg-white text-[#2D2D2D]"} focus:outline-none focus:ring-2 focus:ring-gray-500 ${isDarkMode ? "dark:focus:ring-offset-[#2D2D2D]" : "focus:ring-offset-white"}`}
+                defaultValue={showForm.group?.categoryId || ""}
+              >
+                <option value="">No Category</option>
+                {categoryItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              {groupType?.isMandatory && (
+                  <span className={`absolute top-1/2 right-2 transform -translate-y-1/2 text-red-500`}>*</span>
+                )}
               <div className="mt-4 flex justify-end space-x-2">
                 <Button onClick={() => setShowForm(null)}>Cancel</Button>
                 <Button type="submit">Save</Button>
@@ -166,8 +227,8 @@ const GroupPage = () => {
           </FormCard>
         </Modal>
       )}
-    </div>
-  );
-};
+          </div>
+        );
+      };
 
 export default GroupPage;

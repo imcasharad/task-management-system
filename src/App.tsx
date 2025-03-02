@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import { HomePage } from "./pages/home/HomePage";
-import GroupPage from "./pages/group/GroupPage";
+import { routes } from "./pages";
 import { ThemeProvider } from "./store/ThemeContext";
 
 function App() {
@@ -9,8 +8,9 @@ function App() {
       <div className="min-h-screen">
         <Router>
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/groups" element={<GroupPage />} />
+          {routes.map((route, index) => (
+              <Route key={index} path={route.path} element={route.element} />
+            ))}
           </Routes>
         </Router>
       </div>

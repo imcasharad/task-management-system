@@ -16,6 +16,7 @@ export const Sidebar = ({ isOpen, onClose, onNavigate }: SidebarProps) => {
   const menuItems = [
     { name: "Home", path: "/" },
     { name: "Group", path: "/groups" },
+    { name: "Settings", path: "/settings" },
   ].filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
